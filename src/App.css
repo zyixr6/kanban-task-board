@@ -1,0 +1,482 @@
+:root {
+  /* these are the shared tokens so the board, stats page, and modal all feel like one product */
+  color-scheme: dark;
+  --bg-top: #0b2741;
+  --bg-bottom: #050b14;
+  --panel: rgba(10, 18, 31, 0.88);
+  --panel-strong: rgba(7, 13, 24, 0.96);
+  --panel-border: rgba(114, 142, 176, 0.18);
+  --panel-border-strong: rgba(46, 193, 223, 0.34);
+  --text-main: #f4f8fc;
+  --text-muted: #91a8bf;
+  --accent-soft: rgba(32, 186, 219, 0.14);
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: Inter, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(32, 186, 219, 0.12), transparent 28%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+  color: var(--text-main);
+}
+
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+#root { min-height: 100vh; }
+
+.boardApp { min-height: 100vh; padding: 28px; }
+.boardShell { width: min(1440px, 100%); margin: 0 auto; }
+
+/* i keep the common flex layouts grouped here so the file stays skimmable */
+.appHeader,
+.boardHeader,
+.laneColumnHeader,
+.taskModalHeader,
+.labelComposer,
+.noteComposerActions,
+.topNav,
+.statsBreakdown,
+.noteCardMeta,
+.noteCardLabels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.appHeader { margin-bottom: 28px; }
+
+.boardEyebrow {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.boardTitle {
+  margin: 0;
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.boardSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.topNav { justify-content: flex-end; }
+
+.topNavButton,
+.modalCloseButton,
+.labelToggle,
+.primaryAction,
+.secondaryAction {
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.topNavButton:hover,
+.modalCloseButton:hover,
+.labelToggle:hover,
+.primaryAction:hover,
+.secondaryAction:hover {
+  transform: translateY(-1px);
+}
+
+.topNavButton {
+  min-height: 44px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border-color: var(--panel-border);
+  font-weight: 700;
+}
+
+.topNavButtonActive {
+  background: var(--accent-soft);
+  color: #b9f5ff;
+  border-color: var(--panel-border-strong);
+}
+
+.boardMeta,
+.statsCard,
+.statsLaneCard,
+.boardLoading,
+.boardError,
+.laneColumn,
+.taskModal,
+.modalSection {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+/* most surfaces use the same card treatment to keep the interface consistent */
+.boardMeta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border-color: var(--panel-border-strong);
+  background: var(--accent-soft);
+  color: #b9f5ff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.boardHeader { margin-bottom: 28px; }
+
+.boardError {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border-color: rgba(228, 92, 114, 0.36);
+  background: rgba(95, 25, 38, 0.5);
+  color: #ffd6dc;
+}
+
+.boardLoading {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  border-radius: 24px;
+  color: var(--text-muted);
+}
+
+.laneGrid,
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* the lanes stay tall on desktop so empty columns still feel clickable and usable */
+.laneColumn {
+  min-height: 760px;
+  border-radius: 24px;
+  padding: 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.laneColumnActive {
+  border-color: var(--panel-border-strong);
+  box-shadow: 0 0 0 3px rgba(32, 186, 219, 0.12), var(--shadow);
+}
+
+.laneColumnHeader h2,
+.taskModalHeader h2,
+.modalSection h3 {
+  margin: 0;
+}
+
+.laneColumnHeader span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.noteComposer,
+.commentComposer {
+  display: grid;
+  gap: 10px;
+}
+
+.noteComposer {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: rgba(5, 10, 19, 0.82);
+}
+
+.noteComposerInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(114, 142, 176, 0.2);
+  background: rgba(2, 7, 15, 0.95);
+  color: var(--text-main);
+  outline: none;
+}
+
+.noteComposerInput:focus { border-color: var(--panel-border-strong); }
+.noteComposerInput::placeholder { color: #5f748b; }
+.noteComposerTextarea { min-height: 96px; resize: vertical; }
+.noteComposerMeta,
+.modalFieldStack { display: grid; gap: 10px; }
+
+.noteComposerField {
+  display: grid;
+  gap: 8px;
+}
+
+.noteComposerField span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.primaryAction,
+.secondaryAction,
+.modalCloseButton {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.primaryAction {
+  background: linear-gradient(180deg, #26c0df 0%, #1aa0bc 100%);
+  color: #072131;
+  font-weight: 800;
+}
+
+.primaryAction:disabled,
+.secondaryAction:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.secondaryAction,
+.modalCloseButton {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-border);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.noteList {
+  min-height: 520px;
+  border-radius: 18px;
+  padding: 6px;
+}
+
+.noteListStack { display: grid; gap: 12px; }
+
+/* cards need to scan quickly but still carry enough metadata to be useful at a glance */
+.noteCard {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(114, 142, 176, 0.16);
+  background: rgba(5, 10, 19, 0.94);
+  cursor: grab;
+  transition: border-color 0.16s ease, opacity 0.12s ease;
+  user-select: none;
+  touch-action: none;
+  will-change: opacity;
+}
+
+.noteCard:hover { border-color: rgba(46, 193, 223, 0.28); }
+.noteCardDragging { opacity: 0; box-shadow: none; }
+.noteCardOverlay { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34); cursor: grabbing; opacity: 1; }
+
+.noteCard p,
+.commentCard p,
+.activityItem p,
+.statsCard p,
+.statsLaneCard p,
+.emptySectionText {
+  margin: 0;
+}
+
+.noteCard p {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.noteCardDescription {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.noteCardMeta,
+.noteCardLabels {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
+.noteBadge,
+.noteTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.noteBadgeNormal { background: rgba(32, 186, 219, 0.14); color: #b9f5ff; }
+.noteBadgeHigh { background: rgba(232, 88, 113, 0.14); color: #ffc4ce; }
+.noteBadgeLow { background: rgba(79, 196, 126, 0.14); color: #c8ffd8; }
+.noteBadgeDate { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+.noteBadgeOverdue { background: rgba(232, 88, 113, 0.18); color: #ffc4ce; }
+.noteBadgeSoon { background: rgba(234, 179, 8, 0.18); color: #ffe38b; }
+
+.noteTag {
+  border: 1px solid;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.statsPage { display: grid; gap: 22px; }
+
+.statsGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.statsCard,
+.statsLaneCard {
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.statsCard p,
+.statsLaneCard p {
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.statsCard strong,
+.statsLaneCard strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 2rem;
+}
+
+.statsBreakdown { justify-content: flex-start; flex-wrap: wrap; }
+.statsLaneCard { min-width: 220px; }
+
+.modalBackdrop {
+  /* the blur keeps context from the board without letting the modal fight the background */
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(2, 7, 15, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.taskModal {
+  width: min(1180px, 100%);
+  max-height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--panel-strong);
+}
+
+.taskModalGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.taskModalMain,
+.taskModalSide { display: grid; gap: 20px; }
+
+.modalSection {
+  padding: 18px;
+  border-radius: 22px;
+}
+
+.modalSection h3 { margin-bottom: 16px; }
+.modalSaveButton { width: 100%; margin-top: 14px; }
+.modalActionRow {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.labelComposer { align-items: stretch; margin-bottom: 16px; }
+.labelComposer .noteComposerInput { flex: 1; }
+.labelOptions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+
+.labelToggle {
+  min-height: 38px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+}
+
+.labelToggleActive { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.deleteActionButton {
+  border-color: rgba(228, 92, 114, 0.36);
+  background: rgba(95, 25, 38, 0.5);
+  color: #ffd6dc;
+}
+
+.commentList,
+.activityList {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.commentCard,
+.activityItem {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(114, 142, 176, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.commentCard p,
+.activityItem p { line-height: 1.6; }
+
+.commentCard span,
+.activityItem span,
+.emptySectionText {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .laneGrid,
+  .statsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .laneColumn { min-height: 560px; }
+  .taskModalGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .boardApp,
+  .modalBackdrop { padding: 16px; }
+  .appHeader,
+  .boardHeader,
+  .taskModalHeader,
+  .noteComposerActions,
+  .labelComposer { flex-direction: column; align-items: stretch; }
+  .laneGrid,
+  .statsGrid { grid-template-columns: 1fr; }
+  .laneColumn { min-height: auto; }
+  .taskModal { max-height: calc(100vh - 32px); padding: 18px; }
+}
