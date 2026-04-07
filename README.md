@@ -8,6 +8,8 @@ The board is designed to stay simple and fast to use, while more advanced functi
 
 The application uses anonymous authentication and Row Level Security (RLS) to ensure each user only has access to their own data.
 
+Demo: https://kanban-task-board-inky.vercel.app/
+
 ## Tech Stack
 
 - React + TypeScript
