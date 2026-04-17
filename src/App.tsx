@@ -12,7 +12,15 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import './App.css'
-import { supabase } from './lib/supabase'
+import {
+  loadBoardState,
+  makeActivityRecord,
+  makeCommentRecord,
+  makeLabelRecord,
+  makeTaskLabelRecord,
+  makeTaskRecord,
+  saveBoardState,
+} from './lib/localBoard'
 import type {
   CommentRecord,
   LabelRecord,
@@ -64,56 +72,39 @@ function App() {
   const [detailSaving, setDetailSaving] = useState(false)
 
   useEffect(() => {
-    const initializeBoard = async () => {
-      // i want the board to be immediately usable, so i bootstrap the anonymous session here
+    const initializeBoard = () => {
       setLoading(true)
       setErrorMessage(null)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      let currentUser = session?.user ?? null
-      if (!currentUser) {
-        const { data, error } = await supabase.auth.signInAnonymously()
-        if (error) {
-          setErrorMessage(error.message)
-          setLoading(false)
-          return
-        }
-        currentUser = data.user
-      }
-
-      if (!currentUser) {
-        setErrorMessage('Could not create a session for this board.')
+      try {
+        const boardState = loadBoardState()
+        setUserId(boardState.userId)
+        setTasks(boardState.tasks)
+        setComments(boardState.comments)
+        setActivities(boardState.activities)
+        setLabels(boardState.labels)
+        setTaskLabels(boardState.taskLabels)
+      } catch {
+        setErrorMessage('Could not load the saved local board state.')
+      } finally {
         setLoading(false)
-        return
       }
-
-      setUserId(currentUser.id)
-
-      // loading the side tables up front keeps the modal simple later because everything is already in memory
-      const [taskResponse, commentResponse, activityResponse, labelResponse, taskLabelResponse] = await Promise.all([
-        supabase.from('tasks').select('*').order('created_at', { ascending: false }),
-        supabase.from('comments').select('*').order('created_at', { ascending: true }),
-        supabase.from('task_activity').select('*').order('created_at', { ascending: false }),
-        supabase.from('labels').select('*').order('created_at', { ascending: true }),
-        supabase.from('task_labels').select('*').order('created_at', { ascending: true }),
-      ])
-
-      if (taskResponse.error) {
-        setErrorMessage(taskResponse.error.message)
-      } else {
-        setTasks((taskResponse.data as Task[]) ?? [])
-      }
-      if (!commentResponse.error) setComments((commentResponse.data as CommentRecord[]) ?? [])
-      if (!activityResponse.error) setActivities((activityResponse.data as TaskActivityRecord[]) ?? [])
-      if (!labelResponse.error) setLabels((labelResponse.data as LabelRecord[]) ?? [])
-      if (!taskLabelResponse.error) setTaskLabels((taskLabelResponse.data as TaskLabelRecord[]) ?? [])
-      setLoading(false)
     }
 
-    void initializeBoard()
+    initializeBoard()
   }, [])
+
+  useEffect(() => {
+    if (loading || !userId) return
+
+    saveBoardState({
+      userId,
+      tasks,
+      comments,
+      activities,
+      labels,
+      taskLabels,
+    })
+  }, [activities, comments, labels, loading, taskLabels, tasks, userId])
 
   useEffect(() => {
     const task = tasks.find((currentTask) => currentTask.id === selectedTaskId)
@@ -176,64 +167,40 @@ function App() {
     }
   }, [tasks])
 
-  const logActivity = async (taskId: string, description: string) => {
-    // i keep the activity logger tiny on purpose so i can call it from anywhere without extra ceremony
-    const { data, error } = await supabase
-      .from('task_activity')
-      .insert({ task_id: taskId, description, user_id: userId })
-      .select()
-      .single()
-
-    if (!error && data) setActivities((currentActivities) => [data as TaskActivityRecord, ...currentActivities])
+  const logActivity = (taskId: string, description: string) => {
+    if (!userId) return
+    // activity now stays local so the demo works fully offline and on static hosting
+    const record = makeActivityRecord({ task_id: taskId, description, user_id: userId })
+    setActivities((currentActivities) => [record, ...currentActivities])
   }
 
-  const createNote = async (status: TaskStatus) => {
+  const createNote = (status: TaskStatus) => {
     const draft = drafts[status]
     if (!draft.title.trim() || !userId) return
 
-    // i store the optional fields right away so cards and stats stay honest from the first save
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({
-        title: draft.title.trim(),
-        description: draft.description.trim() || null,
-        priority: draft.priority,
-        due_date: draft.dueDate || null,
-        status,
-        user_id: userId,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      setErrorMessage(error.message)
-      return
-    }
-
-    const nextTask = data as Task
+    const nextTask = makeTaskRecord({
+      title: draft.title.trim(),
+      description: draft.description.trim() || null,
+      priority: draft.priority,
+      due_date: draft.dueDate || null,
+      status,
+      user_id: userId,
+    })
     setTasks((currentTasks) => [nextTask, ...currentTasks])
     setDrafts((currentDrafts) => ({ ...currentDrafts, [status]: { ...emptyDraft } }))
     setActiveLane(null)
-    await logActivity(nextTask.id, `Created in ${getLaneLabel(status)}.`)
+    logActivity(nextTask.id, `Created in ${getLaneLabel(status)}.`)
   }
 
-  const moveTask = async (taskId: string, nextStatus: TaskStatus) => {
+  const moveTask = (taskId: string, nextStatus: TaskStatus) => {
     const previousTask = tasks.find((task) => task.id === taskId)
-    const previousTasks = tasks
-    // optimistic updates keep drag and drop from feeling laggy
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === taskId ? { ...task, status: nextStatus } : task)))
-    const { error } = await supabase.from('tasks').update({ status: nextStatus }).eq('id', taskId)
-    if (error) {
-      setTasks(previousTasks)
-      setErrorMessage(error.message)
-      return
-    }
     if (previousTask && previousTask.status !== nextStatus) {
-      await logActivity(taskId, `Moved from ${getLaneLabel(previousTask.status)} to ${getLaneLabel(nextStatus)}.`)
+      logActivity(taskId, `Moved from ${getLaneLabel(previousTask.status)} to ${getLaneLabel(nextStatus)}.`)
     }
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     // dropping onto either a lane or another card should still resolve to the closest lane
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
@@ -242,7 +209,7 @@ function App() {
     const overTask = tasks.find((task) => task.id === overId)
     const nextStatus = lanes.find((lane) => lane.key === overId)?.key ?? overTask?.status
     if (!nextStatus) return
-    await moveTask(activeId, nextStatus)
+    moveTask(activeId, nextStatus)
   }
 
   const saveTaskDetail = async () => {
@@ -259,13 +226,6 @@ function App() {
     }
     const previousTask = selectedTask
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === selectedTask.id ? { ...task, ...updates } : task)))
-    const { error } = await supabase.from('tasks').update(updates).eq('id', selectedTask.id)
-    if (error) {
-      setTasks((currentTasks) => currentTasks.map((task) => (task.id === previousTask.id ? previousTask : task)))
-      setErrorMessage(error.message)
-      setDetailSaving(false)
-      return
-    }
 
     const messages: string[] = []
     // i keep these messages plain because they get reused directly in the timeline
@@ -278,89 +238,54 @@ function App() {
     if (previousTask.status !== updates.status) {
       messages.push(`Moved from ${getLaneLabel(previousTask.status)} to ${getLaneLabel(updates.status)}.`)
     }
-    await Promise.all(messages.map((message) => logActivity(selectedTask.id, message)))
+    messages.forEach((message) => logActivity(selectedTask.id, message))
     setDetailSaving(false)
   }
 
-  const createLabel = async () => {
+  const createLabel = () => {
     if (!newLabelName.trim() || !userId) return
     // rotating through a small palette keeps custom labels visually distinct without adding another design control
     const color = labelColors[labels.length % labelColors.length]
-    const { data, error } = await supabase
-      .from('labels')
-      .insert({ name: newLabelName.trim(), color, user_id: userId })
-      .select()
-      .single()
-    if (error) {
-      setErrorMessage(error.message)
-      return
-    }
-    setLabels((currentLabels) => [...currentLabels, data as LabelRecord])
+    const label = makeLabelRecord({ name: newLabelName.trim(), color, user_id: userId })
+    setLabels((currentLabels) => [...currentLabels, label])
     setNewLabelName('')
   }
 
-  const toggleTaskLabel = async (labelId: string) => {
+  const toggleTaskLabel = (labelId: string) => {
     if (!selectedTask) return
     // labels are many-to-many, so the modal just flips the join record on or off
     const existing = taskLabels.find((item) => item.task_id === selectedTask.id && item.label_id === labelId)
     if (existing) {
       setTaskLabels((currentTaskLabels) => currentTaskLabels.filter((item) => item.id !== existing.id))
-      const { error } = await supabase.from('task_labels').delete().eq('id', existing.id)
-      if (error) {
-        setErrorMessage(error.message)
-        return
-      }
       const label = labels.find((currentLabel) => currentLabel.id === labelId)
-      if (label) await logActivity(selectedTask.id, `Removed label ${label.name}.`)
+      if (label) logActivity(selectedTask.id, `Removed label ${label.name}.`)
       return
     }
 
-    const { data, error } = await supabase
-      .from('task_labels')
-      .insert({ task_id: selectedTask.id, label_id: labelId })
-      .select()
-      .single()
-    if (error) {
-      setErrorMessage(error.message)
-      return
-    }
-    setTaskLabels((currentTaskLabels) => [...currentTaskLabels, data as TaskLabelRecord])
+    const record = makeTaskLabelRecord({ task_id: selectedTask.id, label_id: labelId })
+    setTaskLabels((currentTaskLabels) => [...currentTaskLabels, record])
     const label = labels.find((currentLabel) => currentLabel.id === labelId)
-    if (label) await logActivity(selectedTask.id, `Added label ${label.name}.`)
+    if (label) logActivity(selectedTask.id, `Added label ${label.name}.`)
   }
 
-  const addComment = async () => {
+  const addComment = () => {
     if (!selectedTask || !commentDraft.trim() || !userId) return
-    // comments stay in their own table so the task row itself does not become a dumping ground
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({ task_id: selectedTask.id, body: commentDraft.trim(), user_id: userId })
-      .select()
-      .single()
-    if (error) {
-      setErrorMessage(error.message)
-      return
-    }
-    setComments((currentComments) => [...currentComments, data as CommentRecord])
+    const comment = makeCommentRecord({ task_id: selectedTask.id, body: commentDraft.trim(), user_id: userId })
+    setComments((currentComments) => [...currentComments, comment])
     setCommentDraft('')
-    await logActivity(selectedTask.id, 'Added a comment.')
+    logActivity(selectedTask.id, 'Added a comment.')
   }
 
-  const deleteTask = async () => {
+  const deleteTask = () => {
     if (!selectedTask) return
     const taskId = selectedTask.id
-    const previousTasks = tasks
-    // deleting from the local list first makes the modal feel immediate, then the database confirms it
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId))
+    setComments((currentComments) => currentComments.filter((comment) => comment.task_id !== taskId))
+    setActivities((currentActivities) => currentActivities.filter((activity) => activity.task_id !== taskId))
+    setTaskLabels((currentTaskLabels) => currentTaskLabels.filter((item) => item.task_id !== taskId))
     setSelectedTaskId(null)
     setCommentDraft('')
     setNewLabelName('')
-
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
-    if (error) {
-      setTasks(previousTasks)
-      setErrorMessage(error.message)
-    }
   }
 
   return (
@@ -414,7 +339,7 @@ function App() {
                         [lane.key]: { ...currentDrafts[lane.key], [field]: value },
                       }))
                     }
-                    onCreateNote={() => void createNote(lane.key)}
+                    onCreateNote={() => createNote(lane.key)}
                     onSelectTask={setSelectedTaskId}
                   />
                 ))}
@@ -443,11 +368,11 @@ function App() {
                 onDraftChange={(field, value) => setDetailDraft((currentDraft) => (currentDraft ? { ...currentDraft, [field]: value } : currentDraft))}
                 onCommentDraftChange={setCommentDraft}
                 onNewLabelNameChange={setNewLabelName}
-                onCreateLabel={() => void createLabel()}
-                onToggleLabel={(labelId) => void toggleTaskLabel(labelId)}
-                onAddComment={() => void addComment()}
+                onCreateLabel={() => createLabel()}
+                onToggleLabel={(labelId) => toggleTaskLabel(labelId)}
+                onAddComment={() => addComment()}
                 onSave={() => void saveTaskDetail()}
-                onDelete={() => void deleteTask()}
+                onDelete={() => deleteTask()}
               />
             ) : null}
           </>

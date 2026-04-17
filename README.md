@@ -1,19 +1,31 @@
 # Kanban Task Board
 
-A full-stack Kanban-style task management application built with React, TypeScript, and Supabase.
+A Kanban-style task board built with React and TypeScript for static demo hosting.
 
-The app allows users to create and manage tasks across four workflow stages — **To Do, In Progress, In Review, and Done** — using a drag-and-drop interface. Tasks can include descriptions, priority levels, due dates, labels, comments, and activity history.
+The app lets users create and manage notes across four workflow stages: **To Do, In Progress, In Review, and Done**. Notes support descriptions, priorities, due dates, labels, comments, drag-and-drop movement, and an activity history panel.
 
-The board is designed to stay simple and fast to use, while more advanced functionality (editing, comments, and history) is handled through a dedicated task detail modal. A separate stats view provides an overview of project progress and key metrics.
+The board now stores all data locally in the browser with `localStorage`, so it works without a backend and remains available after refreshes on the same device/browser profile. That makes it safe to demo on GitHub Pages or any other static host.
 
-The application uses anonymous authentication and Row Level Security (RLS) to ensure each user only has access to their own data.
+## Run Locally
 
-Demo: https://kanban-task-board-inky.vercel.app/
+```bash
+npm install
+npm run dev
+```
+
+Then open the local Vite URL shown in the terminal, typically `http://localhost:5173`.
+
+## Build For Demo Hosting
+
+```bash
+npm run build
+```
+
+The generated static site will be written to `dist/`.
 
 ## Tech Stack
 
 - React + TypeScript
-- Vite + Tailwind CSS
-- Supabase (PostgreSQL + Auth)
-- @dnd-kit (drag and drop)
-- Vercel (deployment)
+- Vite
+- @dnd-kit
+- Browser `localStorage`
